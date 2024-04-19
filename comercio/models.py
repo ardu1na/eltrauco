@@ -134,10 +134,7 @@ class PedidoProveedor(models.Model):
             t += s
         return t
 
-    @property
-    def total_pago(self):
-        return (self.total + self.total_retorno)
-
+   
     @property
     def proveedor(self):
         p = ProductoPedido.objects.filter(pedido=self).first()
@@ -196,8 +193,7 @@ class ProductoPedido(models.Model):
     
     @property
     def proveedor(self):
-        p = ProductoPedido.objects.filter(pedido=self)
-        p = self.producto.producto.proveedor
+        p = self.producto.proveedor
         return p
 
 ### LOCAL

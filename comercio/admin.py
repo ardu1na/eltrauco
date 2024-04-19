@@ -40,5 +40,5 @@ class ProductoPedidoInline(admin.StackedInline):
 
 class PedidoProveedorAdmin(admin.ModelAdmin):
     inlines = [ProductoPedidoInline,]
-    list_display = ['fecha', 'proveedor','total','total_pago','total_retorno']
+    list_display = ['fecha', 'proveedor','total','total_retorno']
 admin.site.register(PedidoProveedor, PedidoProveedorAdmin)
