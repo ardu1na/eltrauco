@@ -1,19 +1,38 @@
 from django.db import models
+from django.utils import timezone
 
+### GENERAL
+class Nota(models.Model):
+    titulo = models.CharField(max_length=600)
+
+    texto = models.TextField(null=True, blank=True)
+    fecha = models.DateField(default=timezone.now)
+
+    done = models.BooleanField(default=False)
+    fecha_limite = models.DateField(null=True, blank=True)
+
+    proveedor = models.ForeignKey('comercio.Proveedor', on_delete=models.CASCADE, null=True, blank=True, related_name="notas")
+    pedido = models.ForeignKey('comercio.PedidoProveedor', on_delete=models.CASCADE, null=True, blank=True, related_name="notas")
+    producto = models.ForeignKey('comercio.ProductoEnLocal', on_delete=models.CASCADE, null=True, blank=True, related_name="notas")
+
+    def __str__(self):
+        return self.titulo
 
 class Rubro(models.Model):
     nombre = models.CharField(max_length=100)
     def __str__ (self):      
         return self.nombre
     
-"""a rubro y categoria se le puede añadir una variable de porcentaje de marcado"""
-
 class Categoria(models.Model):
     nombre = models.CharField(max_length=100)
+    rubro = models.ForeignKey(Rubro, on_delete=models.SET_NULL, null=True, blank=True, related_name="categorias")
+
     def __str__ (self):      
         return self.nombre
-    
-class Proovedor(models.Model):
+    """a rubro y categoria se le puede añadir una variable de porcentaje de marcado"""
+
+### PROVEEDORES
+class Proveedor(models.Model):
     class Meta:
         verbose_name_plural = "proveedores"
 
@@ -34,7 +53,6 @@ class Proovedor(models.Model):
             return f'{self.contacto} - {self.empresa}'
         return self.empresa
     
-
 class ProductoProveedor(models.Model):
     class Meta:
         verbose_name_plural = "productos de lista"
@@ -44,7 +62,7 @@ class ProductoProveedor(models.Model):
     """
     # cómo manejar las promos?
     """
-    proveedor = models.ForeignKey(Proovedor, on_delete=models.CASCADE, related_name="productos")
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.CASCADE, related_name="productos")
     rubro = models.ForeignKey(Rubro, on_delete=models.SET_NULL, null=True, blank=True, related_name="productos")
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name="productos")
     codigo_prod = models.CharField(max_length=10, null=True, blank=True)
@@ -90,6 +108,10 @@ class PedidoProveedor(models.Model):
     fecha = models.DateField()
     comentarios = models.TextField()
 
+    pagado = models.BooleanField(default=False)
+    entregado = models.BooleanField(default=False)
+    pendiente = models.BooleanField(default=True)
+
     def __str__ (self):      
         return f'Pedido a {self.proveedor} {self.fecha} - inversion ${self.total} - ganancia ${self.total_retorno}' 
     
@@ -122,8 +144,10 @@ class PedidoProveedor(models.Model):
         pro = p.producto.proveedor
         return pro.empresa
 
-
 class ProductoPedido(models.Model):
+    """ añadir campo precio de venta|   sugerir precio unitario de venta con el del productoproveedor y modificar cálculos"
+    """
+    
     class Meta:
         verbose_name_plural = "productos pedidos"
 
@@ -142,13 +166,90 @@ class ProductoPedido(models.Model):
                   
 
     @property
-    def total(self):
+    def costo_total(self):
         p = self.producto.precio*self.cantidad
         return p
-
+    
+    @property
+    def total_q(self):
+        p = self.producto.cantidad*self.cantidad
+        return p
+    
+    @property
+    def bulto(self):
+        p = self.producto.cantidad
+        return p
 
     @property
-    def proovedor(self):
+    def ganancia_total(self):
+        p = self.producto.retorno_total*self.cantidad
+        return p
+    
+    @property
+    def ganancia_unidad(self):
+        p = self.producto.retorno_unidad
+        return p
+    @property
+    def costo_unidad(self):
+        p = self.producto.precio_unidad
+        return p
+    
+    @property
+    def proveedor(self):
         p = ProductoPedido.objects.filter(pedido=self)
-        p = self.producto.producto.proovedor
+        p = self.producto.producto.proveedor
+        return p
+
+### LOCAL
+class ProductoEnLocal(models.Model): #añadir logica de instanciar cuando pendiente=false de productopedido.pedido
+    class Meta:
+        verbose_name_plural = "productos en venta"
+
+    producto = models.OneToOneField(ProductoPedido, related_name="en_local", on_delete=models.CASCADE)
+    stock = models.PositiveSmallIntegerField(default=0)
+    precio = models.PositiveSmallIntegerField(default=1)
+
+    def get_initial_stock(self):
+        return self.producto.total_q
+     
+    def save (self, *args, **kwargs):
+        if not self.pk and self.stock == 0:
+            self.stock = self.get_initial_stock()
+        super().save(*args, **kwargs)
+
+    def __str__ (self):      
+        return f'{self.nombre} ${self.precio} ({self.stock}u.)'
+
+    @property
+    def get_producto(self):
+        p = self.producto.producto
+        return p
+    
+    @property
+    def nombre(self):
+        p = self.get_producto.nombre
+        return p
+    
+    @property
+    def costo_unitario(self):
+        p = self.get_producto.precio_unidad
+        return p
+    
+
+    @property
+    def ganancia(self):
+        p = self.precio - self.costo_unitario
+        return p
+    
+    @property
+    def precio_sugerido(self):
+        p = self.get_producto.precio_unidad_comercial
+        return p
+    @property
+    def ganancia_sugerida(self):
+        p = self.get_producto.retorno_unidad
+        return p
+    @property
+    def sugerencia(self):
+        p = f'${self.precio_sugerido} (+${self.ganancia_sugerida}'
         return p
