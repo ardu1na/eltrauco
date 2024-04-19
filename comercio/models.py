@@ -3,6 +3,10 @@ from django.utils import timezone
 
 ### GENERAL
 class Nota(models.Model):
+    class Meta:
+        verbose_name= "anotación"
+        verbose_name_plural= "anotaciones"
+
     titulo = models.CharField(max_length=600)
 
     texto = models.TextField(null=True, blank=True)
